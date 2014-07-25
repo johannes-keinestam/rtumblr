@@ -3,6 +3,7 @@ import pytumblr
 from bottle import get, post, request, run, view, TEMPLATE_PATH, static_file, redirect, template
 import urlparse
 import oauth2 as oauth
+from functools import partial
 
 consumer_key = '04Liy0s8Gfxx7TyaojiPVN0JMMACuhM1TITjL8fw5j7X3vf0Pw'
 consumer_secret = '92QRq11NKjWy4Bo5jgF3edfu3QY3fUTFNCectAaEu7sFn1jLQC'
@@ -49,6 +50,9 @@ class OAuthTumblrRestClient(pytumblr.TumblrRestClient):
     def authenticated(self):
         return self.user != None
 
+class BlogNotFoundException(Exception):
+    pass
+
 def response_to_posts(post_response, sort=False):
     posts = []
     for post in post_response:
@@ -56,55 +60,100 @@ def response_to_posts(post_response, sort=False):
             'blog':  post['blog_name'],
             'type':  post['type'],
             'notes': post['note_count'],
-            'link':  post['post_url']
+            'link':  post['post_url'],
+            'title': post.get('title') or post.get('id')
         })
     if sort:
         return sorted(posts, key=lambda p: int(p['notes']), reverse=sort=='up')
     return posts
 
-def template_dict(**params):
-    result = {'pages': pages, 'username': tumblr_client.user}
+def get_user_avatar():
+    if tumblr_client.authenticated:
+        return tumblr_client.avatar(tumblr_client.user)['avatar_url']
+    return 'http://assets.tumblr.com/images/favicons/favicon.ico'
+
+def template_dict(request, **params):
+    result = {'pages': pages, 'username': tumblr_client.user,
+              'avatar_url': get_user_avatar(),
+              'limit': requested_posts(request)}
     result.update(params)
     return result
+
+def get_posts(func, key, n=20, **params):
+    max_allowed = 20
+    left = n
+    posts = []
+    while left > 0:
+        response = func(limit=min(n, max_allowed), offset=n-left, **params)
+        if 'meta' in response and response['meta']['status'] == 404:
+            raise BlogNotFoundException()
+        fetched_posts = response[key]
+        if not fetched_posts:
+            break;
+        left -= len(fetched_posts)
+        posts += fetched_posts
+    return posts
+
+@get('/blog')
+@view('templates/index2')
+def blog_search():
+    print 'Hey bro!'
+    blog_page = ('/blog/' + request.query.blog) if request.query.blog else '/'
+    return redirect(blog_page)
 
 @get('/blog/<blog>')
 @view('templates/index2')
 def blog_view(blog):
+    num_posts = requested_posts(request)
     params = {}
     if request.query.ptype:
         params['type'] = request.query.ptype
-    response = tumblr_client.posts(blog, **params)
-    posts = response_to_posts(response['posts'], request.query.sort)
-    return template_dict(posts=posts,
-                         title=response['blog']['name'],
-                         subtitle=response['blog']['title'],
+    try:
+        response = get_posts(partial(tumblr_client.posts, blog), 'posts', num_posts, **params)
+    except BlogNotFoundException:
+        return template_dict(None, page_title='Blog %s not found' % blog)
+    posts = response_to_posts(response, request.query.sort)
+    blog_info = tumblr_client.blog_info(blog)
+    return template_dict(request,
+                         posts=posts,
+                         title=blog_info['blog']['name'],
+                         subtitle=blog_info['blog']['title'],
                          avatar_url=tumblr_client.avatar(blog)['avatar_url'])
+
+def requested_posts(request):
+    if not request or not request.query.limit.isdigit():
+        return 20
+    return int(request.query.limit)
 
 @get('/likes')
 @view('templates/index2')
 def likes_view():
-    import pprint
     if tumblr_client.authenticated:
-        liked_posts = tumblr_client.likes()['liked_posts']
+        num_posts = requested_posts(request)
+        liked_posts = get_posts(tumblr_client.likes, 'liked_posts', num_posts)
         posts = response_to_posts(liked_posts, request.query.sort)
+        page_title = 'Likes'
     else:
-        posts = []
-    return template_dict(posts=posts, title='Likes')
+        posts = None
+        page_title = 'Welcome, Guest!'
+    return template_dict(request, posts=posts, page_title=page_title)
 
 @get('/')
 @view('templates/index2')
 def dashboard_view():
     if tumblr_client.authenticated:
-        dashboard_posts = tumblr_client.dashboard()['posts']
+        num_posts = requested_posts(request)
+        dashboard_posts = get_posts(tumblr_client.dashboard, 'posts', num_posts)
         posts = response_to_posts(dashboard_posts, request.query.sort)
+        page_title = 'Dashboard'
     else:
-        posts = []
-    return template_dict(posts=posts, title='Dashboard')
+        posts = None
+        page_title = 'Welcome, Guest!'
+    return template_dict(request, posts=posts, page_title=page_title)
 
 @get('/static/<sfile:re:.+>')
 def get_static(sfile):
     root = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'static')
-    print 'trying to fetch %s from %s' % (sfile, root)
     return static_file(sfile, root=root)
 
 @get('/login')

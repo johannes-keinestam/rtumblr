@@ -8,7 +8,7 @@
     <title>rTumblr</title>
 
     
-
+<script src="/static/js/sorttable.js"></script>
 
 <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.5.0/pure-min.css">
 
@@ -49,10 +49,13 @@
 <body>
 
 %setdefault('title', '')
+%setdefault('page_title', title)
 %setdefault('subtitle', '')
 %setdefault('avatar_url', 'http://assets.tumblr.com/images/favicons/favicon.ico')
 %setdefault('pages', {})
+%setdefault('limit', 20)
 %setdefault('username', '')
+%setdefault('posts', None)
 %loggedin = bool(username)
 <div id="layout" class="pure-g">
     <div class="sidebar pure-u-1 pure-u-md-1-4">
@@ -72,53 +75,73 @@
                     %end
                     </li>
                 <br>
-                %for page, url in pages.iteritems():
-                    <li class="nav-item">
-                        <a class="pure-button" href="{{url}}">{{page}}</a>
-                    </li>
+                %if loggedin:
+                    %for page, url in pages.iteritems():
+                        <li class="nav-item">
+                            <a class="pure-button" href="{{url}}">{{page}}</a>
+                        </li>
+                    %end
                 %end
+                <br>
+                <br>
+                <form class="post-avatar pure-form" method="get" action="/blog">
+                    <input type="text" class="pure-input-rounded" name="blog", placeholder="{{title or 'Search blogs...'}}" size="15">
+                    <button type="submit" class="pure-button" style="display: none;">
+                </form>
+
                 </ul>
             </nav>
         </div>
     </div>
 
     <div class="content pure-u-1 pure-u-md-3-4">
+
         <div>
             <!-- A wrapper for all the blog posts -->
             <div class="posts">
                 <!-- A single blog post -->
                 <section class="post">
-                    <header class="post-header">
-                        <img class="post-avatar" alt="Tilo Mitra&#x27;s avatar" height="48" width="48" src="{{avatar_url}}">
-                        <h2 class="post-title">{{title}}</h2>
+                    <div class="woo" style="display: inline-block; width: 100%; height: 48px">
+                        <img class="post-avatar" height="48" width="48" src="{{avatar_url}}">
+                        <form class="post-avatar pure-form" method="get">
+                            <input type="text" class="pure-input-rounded" name="limit", placeholder="{{limit}}" size="1">
+                            <button type="submit" class="pure-button" style="display: none;">Search</button>
+                        </form>
+
+                        <h2 class="post-title" style="display:table-cell;">{{page_title}}</h2>
                         %if subtitle:
                             <small>{{subtitle}}</small>
                         %end
-                    </header>
+                    </div>
 
                     <div class="post-description">
                         <p>
-                        <table class="pure-table pure-table-bordered">
-                            <thead>
-                                <tr>
-                                    <th>Blog</th>
-                                    <th>Link</th>
-                                    <th>Type</th>
-                                    <th><a href="?sort=up">Notes</th>
-                                </tr>
-                            </thead>
+                        %if posts:
+                            <table id="post-table" class="pure-table pure-table-bordered sortable" style="width: 100%">
+                                <thead>
+                                    <tr>
+                                        <th>Blog</th>
+                                        <th width="99%">Link</th>
+                                        <th>Type</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
 
-                            <tbody>
-                            %for post in posts:
-                                <tr>
-                                    <th><a href="/blog/{{post['blog']}}">{{post['blog']}}</a></th>
-                                    <th><a href="{{post['link']}}">{{post['link']}}</a></th>
-                                    <th>{{post['type']}}</th>
-                                    <th>{{post['notes']}}</th>
-                                </tr>
-                            %end
-                            </tbody>
-                        </table>
+                                <tbody>
+                                %for i, post in enumerate(posts, start=1):
+                                    <tr>
+                                        <th><a href="/blog/{{post['blog']}}">{{post['blog']}}</a></th>
+                                        %post_title = 'Post #%s: %s' % (i, post.get('title', 'Untitled'))
+                                        <th><a href="{{post['link']}}">{{post_title}}</a></th>
+                                        <th>{{post['type']}}</th>
+                                        <th>{{post['notes']}}</th>
+                                    </tr>
+                                %end
+                        %elif type(posts) == type(list()) and len(posts) == 0:
+                            <p>Empty!</p>
+                        %end
+                                </tbody>
+                            </table>
                         </p>
                     </div>
                 </section>
