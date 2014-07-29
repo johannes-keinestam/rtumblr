@@ -118,12 +118,12 @@
                     <div class="post-description">
                         <p>
                         %if posts:
-                            <table id="post-table" class="pure-table pure-table-bordered sortable" style="width: 100%">
+                            <table id="post-table" class="pure-table pure-table-bordered sortable" style="width: 100%; text-align: left;">
                                 <thead>
                                     <tr>
                                         <th>Blog</th>
-                                        <th width="99%">Link</th>
-                                        <th>Type</th>
+                                        <th style="width: 70%">Link</th>
+                                        <th style="width: 30%">Type</th>
                                         <th>Notes</th>
                                     </tr>
                                 </thead>

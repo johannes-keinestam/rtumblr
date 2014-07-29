@@ -15,13 +15,20 @@ class BlogNotFoundException(Exception):
 def response_to_posts(post_response, sort=False):
     posts = []
     for post in post_response:
-        posts.append({
+        photo_info = {
             'blog':  post['blog_name'],
             'type':  post['type'],
             'notes': post['note_count'],
             'link':  post['post_url'],
             'title': post.get('title') or post.get('id')
-        })
+        }
+        if post['type'] == 'photo':
+            photo_format = post['photos'][0]['original_size']['url'][-3:].lower()
+            if photo_format == 'gif':
+                photo_info['type'] += ' (gif)'
+            if len(post['photos']) > 1:
+                photo_info['type'] += ' album'
+        posts.append(photo_info)
     if sort:
         return sorted(posts, key=lambda p: int(p['notes']), reverse=sort=='up')
     return posts
