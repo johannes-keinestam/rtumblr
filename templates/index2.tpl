@@ -122,19 +122,22 @@
                                 <thead>
                                     <tr>
                                         <th>Blog</th>
-                                        <th style="width: 70%">Link</th>
+                                        <th style="width: 40%">Link</th>
                                         <th style="width: 30%">Type</th>
+                                        <th style="width: 30%">Time</th>
                                         <th>Notes</th>
                                     </tr>
                                 </thead>
 
                                 <tbody>
+                                %from datetime import datetime
                                 %for i, post in enumerate(posts, start=1):
                                     <tr>
                                         <th><a href="/blog/{{post['blog']}}">{{post['blog']}}</a></th>
                                         %post_title = 'Post #%s: %s' % (i, post.get('title', 'Untitled'))
                                         <th><a href="{{post['link']}}">{{post_title}}</a></th>
                                         <th>{{post['type']}}</th>
+                                        <th>{{datetime.fromtimestamp(post['timestamp']).strftime('%Y-%m-%d %H:%M:%S')}}</th>
                                         <th>{{post['notes']}}</th>
                                     </tr>
                                 %end

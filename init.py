@@ -18,8 +18,9 @@ def response_to_posts(post_response, sort=False):
         photo_info = {
             'blog':  post['blog_name'],
             'type':  post['type'],
-            'notes': post['note_count'],
+            'notes': post.get('note_count', -1),
             'link':  post['post_url'],
+            'timestamp': post['timestamp'],
             'title': post.get('title') or post.get('id')
         }
         if post['type'] == 'photo':
