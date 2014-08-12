@@ -3,7 +3,7 @@ from pytumblr import TumblrRestClient
 from bottle import get, request, run, view, TEMPLATE_PATH, static_file, redirect, template, response
 from functools import partial
 from oauth_login import OAuthLogin
-from datetime import datetime
+from datetime import datetime, timedelta
 
 consumer_key = '04Liy0s8Gfxx7TyaojiPVN0JMMACuhM1TITjL8fw5j7X3vf0Pw'
 consumer_secret = '92QRq11NKjWy4Bo5jgF3edfu3QY3fUTFNCectAaEu7sFn1jLQC'
@@ -37,7 +37,7 @@ def response_to_posts(post_response, sort=False):
 def get_pending_login(oauth_token):
     # Cull hung logins
     for oauth_token, request in pending_logins.iteritems():
-        if (datetime.now() - request['time']).total_seconds() > 1800:
+        if (datetime.now() - request['time']) > timedelta(1800):
             del pending_logins[oauth_token]
             print 'Culled pending login request %s' % oauth_token
     return pending_logins.get(oauth_token, {}).get('request')
@@ -209,4 +209,6 @@ pages = {
     'Likes': '/likes',
 }
 TEMPLATE_PATH.append(os.path.dirname(os.path.realpath(__file__)))
-run(host='localhost', port=8080, reloader=True)
+
+if __name__ == "__main__":
+    run(host='localhost', port=8080, reloader=True)
