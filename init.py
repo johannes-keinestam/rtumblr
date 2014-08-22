@@ -16,23 +16,28 @@ def response_to_posts(post_response, sort=False):
     posts = []
     for post in post_response:
         photo_info = {
-            'blog':  post['blog_name'],
-            'type':  post['type'],
+            'id': post.get('id'),
+            'blog':  post.get('blog_name'),
+            'type':  post.get('type'),
             'notes': post.get('note_count', -1),
-            'link':  post['post_url'],
-            'timestamp': post['timestamp'],
-            'title': post.get('title') or post.get('id')
+            'link':  post.get('post_url'),
+            'date': datetime.fromtimestamp(post['timestamp']),
+            'title': post.get('title') or post.get('id'),
         }
-        if post['type'] == 'photo':
+        if post.get('type') == 'photo':
             photo_format = post['photos'][0]['original_size']['url'][-3:].lower()
             if photo_format == 'gif':
                 photo_info['type'] += ' (gif)'
             if len(post['photos']) > 1:
                 photo_info['type'] += ' album'
         posts.append(photo_info)
+    return posts
+
+def sort_posts_by(posts, sort=False):
     if sort:
         return sorted(posts, key=lambda p: int(p['notes']), reverse=sort=='up')
-    return posts
+    else:
+        return posts
 
 def get_pending_login(oauth_token):
     # Cull hung logins
@@ -60,49 +65,76 @@ def template_dict(**params):
     result.update(params)
     return result
 
-def get_posts(func, key, n=20, **params):
-    def filter_duplicate_posts(posts):
-        post_ids = []
-        result_posts = []
-        for post in posts:
-            if post['id'] not in post_ids:
-                result_posts.append(post)
-                post_ids.append(post['id'])
-        return result_posts
+def filter_duplicate_posts(posts):
+    post_ids = []
+    result_posts = []
+    for post in posts:
+        if post['id'] not in post_ids:
+            result_posts.append(post)
+            post_ids.append(post['id'])
+    return result_posts
+
+def non_paginated_post_fetcher(fetch, key, should_quit, filter_duplicates=False, **params):
+    #
+    # Fetches posts (a multiple of 20) until the function should_quit fails.
+    # Filtering the result is up to the caller (e.g. not all the last 20 were wanted).
+    #
     max_allowed = 20
-    left = n
+    fetched = 0
     posts = []
-    while left > 0:
-        response = func(limit=min(n, max_allowed), offset=n-left, **params)
+    while not should_quit(posts):
+        response = fetch(limit=max_allowed, offset=fetched, **params)
         if 'meta' in response and response['meta']['status'] == 404:
             raise BlogNotFoundException()
-        fetched_posts = response[key]
+        fetched_posts = response_to_posts(response[key])
         if not fetched_posts:
             break;
-        left -= len(fetched_posts)
+        fetched += len(fetched_posts)
         posts += fetched_posts
-    return filter_duplicate_posts(posts)
+    return filter_duplicate_posts(posts) if filter_duplicates else posts
+
+def get_n_posts(fetcher, key, n=20, filter_duplicates=False, **params):
+    def quit_when_n_posts(posts):
+        return len(posts) >= n
+    def filter_larger_posts(posts):
+        return posts[0:n]
+    posts = non_paginated_post_fetcher(fetcher, key, quit_when_n_posts, filter_duplicates, **params)
+    return filter_larger_posts(posts)
+
+def get_posts_since_date(fetcher, key, until_date, filter_duplicates=False, **params):
+    def quit_when_older_posts(posts):
+        if posts:
+            oldest_post_time = posts[-1]['date']
+            return oldest_post_time < until_date
+    def filter_older_posts(posts):
+        return [post for post in posts if post['date'] >= until_date]
+    posts = non_paginated_post_fetcher(fetcher, key, quit_when_older_posts, filter_duplicates, **params)
+    return filter_older_posts(posts)
 
 @get('/blog')
 @view('templates/index2')
 def blog_search():
-    print 'Hey bro!'
     blog_page = ('/blog/' + request.query.blog) if request.query.blog else '/'
     return redirect(blog_page)
 
+@get('/b/<blog>')
 @get('/blog/<blog>')
 @view('templates/index2')
 def blog_view(blog):
     client = tumblr_client()
     num_posts = requested_posts()
+    since_date = requested_date()
     params = {}
     if request.query.ptype:
         params['type'] = request.query.ptype
     try:
-        response = get_posts(partial(client.posts, blog), 'posts', num_posts, **params)
+        if since_date:
+            posts = get_posts_since_date(partial(client.posts, blog), 'posts', since_date, **params)
+        else:
+            posts = get_n_posts(partial(client.posts, blog), 'posts', num_posts, **params)
     except BlogNotFoundException:
         return template_dict(page_title='Blog %s not found' % blog)
-    posts = response_to_posts(response, request.query.sort)
+    posts = sort_posts_by(posts, request.query.sort)
     blog_info = client.blog_info(blog)
     return template_dict(posts=posts,
                          title=blog_info['blog']['name'],
@@ -114,6 +146,14 @@ def requested_posts():
         return 20
     return int(request.query.limit)
 
+def requested_date():
+    if request and request.query.date:
+        try:
+            return datetime.fromtimestamp(int(request.query.date))
+        except Exception, e:
+            print 'Could not get from timestamp %s: ' % request.query.date
+            print e
+
 @get('/likes')
 @view('templates/index2')
 def likes_view():
@@ -122,8 +162,8 @@ def likes_view():
         params['type'] = request.query.ptype
     if authenticated():
         num_posts = requested_posts()
-        liked_posts = get_posts(tumblr_client().likes, 'liked_posts', num_posts, **params)
-        posts = response_to_posts(liked_posts, request.query.sort)
+        liked_posts = get_n_posts(tumblr_client().likes, 'liked_posts', num_posts, **params)
+        posts = sort_posts_by(liked_posts, request.query.sort)
         page_title = 'Likes'
     else:
         posts = None
@@ -138,8 +178,8 @@ def dashboard_view():
         params['type'] = request.query.ptype
     if authenticated():
         num_posts = requested_posts()
-        dashboard_posts = get_posts(tumblr_client().dashboard, 'posts', num_posts, **params)
-        posts = response_to_posts(dashboard_posts, request.query.sort)
+        dashboard_posts = get_n_posts(tumblr_client().dashboard, 'posts', num_posts, **params)
+        posts = sort_posts_by(dashboard_posts, request.query.sort)
         page_title = 'Dashboard'
     else:
         posts = None
