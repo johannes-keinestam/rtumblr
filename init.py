@@ -14,15 +14,16 @@ class BlogNotFoundException(Exception):
 
 def response_to_posts(post_response, sort=False):
     posts = []
-    for post in post_response:
+    for index, post in enumerate(post_response, start=1):
         photo_info = {
-            'id': post.get('id'),
+            'id': str(post.get('id')),
             'blog':  post.get('blog_name'),
             'type':  post.get('type'),
             'notes': post.get('note_count', -1),
             'link':  post.get('post_url'),
-            'date': datetime.fromtimestamp(post['timestamp']),
-            'title': post.get('title') or post.get('id'),
+            'date': post['timestamp'],
+            'title': post.get('title') or str(post.get('id')),
+            'index': index,
         }
         if post.get('type') == 'photo':
             photo_format = post['photos'][0]['original_size']['url'][-3:].lower()
@@ -63,7 +64,7 @@ def template_dict(**params):
               'avatar_url': get_user_avatar(),
               'limit': requested_posts()}
     result.update(params)
-    return result
+    return {'parameters': result}
 
 def filter_duplicate_posts(posts):
     post_ids = []
@@ -112,14 +113,13 @@ def get_posts_since_date(fetcher, key, until_date, filter_duplicates=False, **pa
     return filter_older_posts(posts)
 
 @get('/blog')
-@view('templates/index2')
 def blog_search():
     blog_page = ('/blog/' + request.query.blog) if request.query.blog else '/'
     return redirect(blog_page)
 
 @get('/b/<blog>')
 @get('/blog/<blog>')
-@view('templates/index2')
+@view('templates/main')
 def blog_view(blog):
     client = tumblr_client()
     num_posts = requested_posts()
@@ -155,7 +155,7 @@ def requested_date():
             print e
 
 @get('/likes')
-@view('templates/index2')
+@view('templates/main')
 def likes_view():
     params = {}
     if request.query.ptype:
@@ -171,7 +171,7 @@ def likes_view():
     return template_dict(posts=posts, page_title=page_title)
 
 @get('/')
-@view('templates/index2')
+@view('templates/main')
 def dashboard_view():
     params = {}
     if request.query.ptype:
@@ -190,6 +190,11 @@ def dashboard_view():
 def get_static(sfile):
     root = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'static')
     return static_file(sfile, root=root)
+
+@get('/templates/<tfile>')
+def get_template(tfile):
+    root = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'templates')
+    return static_file(tfile, root=root)
 
 @get('/login')
 def login():
@@ -244,10 +249,10 @@ def username():
     return user_info['user']['name']
 
 
-pages = {
-    'Dashboard': '/',
-    'Likes': '/likes',
-}
+pages = [
+    {'name': 'Dashboard', 'url': '/'},
+    {'name': 'Likes', 'url': '/likes'},
+]
 TEMPLATE_PATH.append(os.path.dirname(os.path.realpath(__file__)))
 
 if __name__ == "__main__":

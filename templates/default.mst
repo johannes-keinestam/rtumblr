@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="description" content="A layout example that shows off a blog page with a list of posts.">
 
     <title>rTumblr</title>
@@ -37,27 +36,9 @@
     <link rel="stylesheet" href="/static/css/general.css">
   
 
-
-
-
-    
-
-    
-
-    
-
 </head>
 <body>
 
-%setdefault('title', '')
-%setdefault('page_title', title)
-%setdefault('subtitle', '')
-%setdefault('avatar_url', 'http://assets.tumblr.com/images/favicons/favicon.ico')
-%setdefault('pages', {})
-%setdefault('limit', 20)
-%setdefault('username', '')
-%setdefault('posts', None)
-%loggedin = bool(username)
 <div id="layout" class="pure-g">
     <div class="sidebar pure-u-1 pure-u-md-1-4">
         <div class="header">
@@ -69,24 +50,25 @@
             <nav class="nav">
                 <ul class="nav-list">
                     <li class="nav-item">
-                    %if loggedin:
+                    {{#username}}
                         <a class="pure-button" href="/logout">Logout {{username}}</a>
-                    %else:
+                    {{/username}}
+                    {{^username}}
                         <a class="pure-button" href="/login">Login</a>
-                    %end
+                    {{/username}}
                     </li>
                 <br>
-                %if loggedin:
-                    %for page, url in pages.iteritems():
+                {{#username}}
+                    {{#pages}}
                         <li class="nav-item">
-                            <a class="pure-button" href="{{url}}">{{page}}</a>
+                            <a class="pure-button" href="{{url}}">{{name}}</a>
                         </li>
-                    %end
-                %end
+                    {{/pages}}
+                {{/username}}
                 <br>
                 <br>
                 <form class="post-avatar pure-form" method="get" action="/blog">
-                    <input type="text" class="pure-input-rounded" name="blog", placeholder="{{title or 'Search blogs...'}}" size="15">
+                    <input type="text" class="pure-input-rounded" name="blog", placeholder="{{#title}}{{.}}{{/title}}{{^title}}Search blogs...{{/title}}" size="15">
                     <button type="submit" class="pure-button" style="display: none;">
                 </form>
 
@@ -109,42 +91,42 @@
                             <button type="submit" class="pure-button" style="display: none;">Search</button>
                         </form>
 
-                        <h2 class="post-title" style="display:table-cell;">{{page_title}}</h2>
-                        %if subtitle:
-                            <small>{{subtitle}}</small>
-                        %end
+                        <h2 class="post-title" style="display:table-cell;">{{#page_title}}{{.}}{{/page_title}}{{^page_title}}{{title}}{{/page_title}}</h2>
+                        {{#subtitle}}
+                        <small>{{subtitle}}</small>
+                        {{/subtitle}}
                     </div>
 
                     <div class="post-description">
                         <p>
-                        %if posts:
-                            <table id="post-table" class="pure-table pure-table-bordered sortable" style="width: 100%; text-align: left;">
-                                <thead>
-                                    <tr>
-                                        <th>Blog</th>
-                                        <th style="width: 40%">Link</th>
-                                        <th style="width: 30%">Type</th>
-                                        <th style="width: 30%">Time</th>
-                                        <th>Notes</th>
-                                    </tr>
-                                </thead>
+                        {{#numPosts}}
+                        <table id="post-table" class="pure-table pure-table-bordered sortable" style="width: 100%; text-align: left;">
+                            <thead>
+                                <tr>
+                                    <th>Blog</th>
+                                    <th style="width: 40%">Link</th>
+                                    <th style="width: 30%">Type</th>
+                                    <th style="width: 30%">Time</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
 
-                                <tbody>
-                                %for i, post in enumerate(posts, start=1):
-                                    <tr>
-                                        <th><a href="/blog/{{post['blog']}}">{{post['blog']}}</a></th>
-                                        %post_title = 'Post #%s: %s' % (i, post.get('title', 'Untitled'))
-                                        <th><a href="{{post['link']}}">{{post_title}}</a></th>
-                                        <th>{{post['type']}}</th>
-                                        <th>{{post['date'].strftime('%Y-%m-%d %H:%M:%S')}}</th>
-                                        <th>{{post['notes']}}</th>
-                                    </tr>
-                                %end
-                        %elif type(posts) == type(list()) and len(posts) == 0:
+                            <tbody>
+                            {{#posts}}
+                                <tr>
+                                    <th><a href="/blog/{{blog}}">{{blog}}</a></th>
+                                    <th><a href="{{link}}" target="_blank">{{#title}}Post #{{index}}: {{title}}{{/title}}{{^title}}Post #{{index}}: Untitled{{/title}}</a></th>
+                                    <th>{{type}}</th>
+                                    <th>{{date}}</th>
+                                    <th>{{notes}}</th>
+                                </tr>
+                            {{/posts}}
+                            </tbody>
+                        </table>
+                        {{/numPosts}}
+                        {{^numPosts}}
                             <p>Empty!</p>
-                        %end
-                                </tbody>
-                            </table>
+                        {{/numPosts}}
                         </p>
                     </div>
                 </section>
