@@ -5,18 +5,41 @@
         <script src="//ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
         <script src="/static/js/mustache.js"></script>
         <script src="/static/js/cookies.min.js"></script>
+        <script src="/static/js/moment-with-locales.min.js"></script>
         <script>
+        // Helper methods for Mustache templates
+        function formattedTimeSincePost(formatStr, _) {
+            // TODO: Allow custom format
+            return moment.unix(this.date).fromNow();
+        };
+        function formattedPostDate(formatStr, _) {
+            return moment.unix(this.date).format(formatStr);
+        };
+
+        function getHelperFunctions() {
+            helpers = []
+            helpers.formattedPostDate = function() {return formattedPostDate; };
+            helpers.formattedTimeSincePost = function() {return formattedTimeSincePost; };
+            return helpers;
+        };
+
         function htmlDecode(input){
             var e = document.createElement('div');
             e.innerHTML = input;
             return e.childNodes.length === 0 ? "" : e.childNodes[0].nodeValue;
         };
 
+        cachedParameters = null;
         function getParameters() {
+            if (cachedParameters) {
+                return cachedParameters;
+            }
             %import json
             decoded = htmlDecode('{{json.dumps(parameters)}}');
             parameters = JSON.parse(decoded);
-            parameters.numPosts = parameters.posts ? parameters.posts.length : 0
+            parameters.numPosts = parameters.posts ? parameters.posts.length : 0;
+            jQuery.extend(parameters, getHelperFunctions());
+            cachedParameters = parameters;
             return parameters;
         };
 
