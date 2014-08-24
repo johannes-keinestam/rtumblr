@@ -29,7 +29,7 @@
         {{#posts}}
         <tr>
             <th>{{blog}}</th>
-            <th><a href="{{link}}" target="_blank">{{#title}}Post #{{index}}: {{title}}{{/title}}{{^title}}Post #{{index}}: Untitled{{/title}}</a></th>
+            <th><a href="{{post_url}}" target="_blank">{{#title}}Post #{{index}}: {{title}}{{/title}}{{^title}}Post #{{index}}: Untitled{{/title}}</a></th>
             <th>{{type}}</th>
             <th>{{notes}}</th>
         </tr>

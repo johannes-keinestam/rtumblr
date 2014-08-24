@@ -15,23 +15,29 @@ class BlogNotFoundException(Exception):
 def response_to_posts(post_response, sort=False):
     posts = []
     for index, post in enumerate(post_response, start=1):
-        photo_info = {
+        post_info = {
             'id': str(post.get('id')),
             'blog':  post.get('blog_name'),
             'type':  post.get('type'),
             'notes': post.get('note_count', -1),
-            'link':  post.get('post_url'),
+            'post_url':  post.get('post_url'),
             'date': post['timestamp'],
             'title': post.get('title') or str(post.get('id')),
             'index': index,
         }
         if post.get('type') == 'photo':
-            photo_format = post['photos'][0]['original_size']['url'][-3:].lower()
+            post_info['photo'] = post['photos'][0]['original_size']['url']
+            photo_format = post_info['photo'][-3:].lower()
             if photo_format == 'gif':
-                photo_info['type'] += ' (gif)'
+                post_info['type'] += ' (gif)'
             if len(post['photos']) > 1:
-                photo_info['type'] += ' album'
-        posts.append(photo_info)
+                post_info['type'] += ' album'
+        if post.get('type') == 'video':
+            post_info['video'] = {
+                'url': post.get('video_url', post.get('post_url')),
+                'thumbnail': post.get('thumbnail_url', '/static/img/blank.png')
+            }
+        posts.append(post_info)
     return posts
 
 def sort_posts_by(posts, sort=False):

@@ -1,0 +1,49 @@
+<html>
+<head>
+    <title>rTumblr</title>
+    <link rel="stylesheet" href="/static/css/justifiedGallery.css" />
+    <script src="/static/js/jquery.justifiedGallery.min.js"></script>
+    <style>
+        .player-button {
+            background-image: url('/static/img/player.png');
+            background-position: center center;
+            background-repeat: no-repeat;
+            vertical-align: top;
+        }
+        .background-image {
+            position: relative;
+            z-index: -1;
+        }
+    </style>
+    <script>
+        $("#mygallery").justifiedGallery({
+            'sizeRangeSuffixes' : {
+                'lt100': '', 
+                'lt240': '', 
+                'lt320': '', 
+                'lt500': '', 
+                'lt640': '', 
+                'lt1024': '',
+            },
+            'rowHeight': 350,
+        });
+    </script>
+</head>
+<body>
+<h1>Hello {{#username}}{{.}}{{/username}}{{^username}}guest{{/username}}!</h1>
+<div id="mygallery" >
+    {{#posts}}
+    {{#photo}}
+    <a href="{{post_url}}" target="_blank">
+        <img alt="{{#title}}Post #{{index}}: {{title}}{{/title}}{{^title}}Post #{{index}}: Untitled{{/title}}" src="{{photo}}"/>
+    </a>
+    {{/photo}}
+    {{#video}}
+    <a href="{{url}}" class="player-button" target="_blank">
+        <img class="background-image" alt="{{#title}}Post #{{index}}: {{title}}{{/title}}{{^title}}Post #{{index}}: Untitled{{/title}}" src="{{thumbnail}}"/>
+    </a>
+    {{/video}}
+    {{/posts}}
+</div>
+</body>
+</html>

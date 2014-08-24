@@ -2,7 +2,7 @@
     <head>
         <title>rTumblr</title>
         <link rel="stylesheet" href="/static/css/theme_switcher.css">
-        <script src="//ajax.googleapis.com/ajax/libs/jquery/1.4.3/jquery.min.js"></script>
+        <script src="http://code.jquery.com/jquery-latest.min.js"></script>
         <script src="/static/js/mustache.js"></script>
         <script src="/static/js/cookies.min.js"></script>
         <script src="/static/js/moment-with-locales.min.js"></script>
@@ -67,6 +67,7 @@
                         <li><a onClick="switchTemplate('default')">default</a></li>
                         <li><a onClick="switchTemplate('reddit')">reddit</a></li>
                         <li><a onClick="switchTemplate('simple')">simple</a></li>
+                        <li><a onClick="switchTemplate('gallery')">gallery</a></li>
                     </ul>
                 </li>
             </ul>

@@ -115,7 +115,7 @@
                             {{#posts}}
                                 <tr>
                                     <th><a href="/blog/{{blog}}">{{blog}}</a></th>
-                                    <th><a href="{{link}}" target="_blank">{{#title}}Post #{{index}}: {{title}}{{/title}}{{^title}}Post #{{index}}: Untitled{{/title}}</a></th>
+                                    <th><a href="{{post_url}}" target="_blank">{{#title}}Post #{{index}}: {{title}}{{/title}}{{^title}}Post #{{index}}: Untitled{{/title}}</a></th>
                                     <th>{{type}}</th>
                                     <th>{{#formattedPostDate}}lll{{/formattedPostDate}}</th>
                                     <th>{{notes}}</th>
