@@ -1,12 +1,18 @@
 import os
+import random
 from pytumblr import TumblrRestClient
 from bottle import get, request, run, view, TEMPLATE_PATH, static_file, redirect, template, response
 from functools import partial
 from oauth_login import OAuthLogin
 from datetime import datetime, timedelta
 
-consumer_key = '04Liy0s8Gfxx7TyaojiPVN0JMMACuhM1TITjL8fw5j7X3vf0Pw'
-consumer_secret = '92QRq11NKjWy4Bo5jgF3edfu3QY3fUTFNCectAaEu7sFn1jLQC'
+try:
+    import settings
+    consumer_key = settings.CONSUMER_KEY
+    consumer_secret = settings.CONSUMER_SECRET
+except Exception, e:
+    raise Exception("rTumblr not set up: settings.py is missing." + str(e))
+
 pending_logins = {}
 
 class BlogNotFoundException(Exception):
@@ -19,6 +25,7 @@ def response_to_posts(post_response, sort=False):
             'id': str(post.get('id')),
             'blog':  post.get('blog_name'),
             'type':  post.get('type'),
+            'album':  False,
             'notes': post.get('note_count', -1),
             'post_url':  post.get('post_url'),
             'date': post['timestamp'],
@@ -31,6 +38,7 @@ def response_to_posts(post_response, sort=False):
             if photo_format == 'gif':
                 post_info['type'] += ' (gif)'
             if len(post['photos']) > 1:
+                post_info['album'] = True
                 post_info['type'] += ' album'
         if post.get('type') == 'video':
             post_info['video'] = {
@@ -40,11 +48,24 @@ def response_to_posts(post_response, sort=False):
         posts.append(post_info)
     return posts
 
-def sort_posts_by(posts, sort=False):
-    if sort:
-        return sorted(posts, key=lambda p: int(p['notes']), reverse=sort=='up')
+def sort_posts_by(posts, sort=False, key='notes'):
+    if sort and sort != 'no':
+        sorted_posts = sorted(posts, key=lambda p: p[key], reverse=sort!='down')
+        for index, post in enumerate(sorted_posts, start=1):
+            post['index'] = index
+        return sorted_posts
     else:
         return posts
+
+def followed_blogs():
+    client = tumblr_client()
+    following_response = client.following()
+    total_followed_blogs = following_response['total_blogs']
+    fetched_blogs = following_response['blogs']
+    while total_followed_blogs > len(fetched_blogs):
+        following_response = client.following(offset=len(fetched_blogs))
+        fetched_blogs += following_response['blogs']
+    return fetched_blogs
 
 def get_pending_login(oauth_token):
     # Cull hung logins
@@ -111,10 +132,10 @@ def get_n_posts(fetcher, key, n=20, filter_duplicates=False, **params):
 def get_posts_since_date(fetcher, key, until_date, filter_duplicates=False, **params):
     def quit_when_older_posts(posts):
         if posts:
-            oldest_post_time = posts[-1]['date']
+            oldest_post_time = datetime.fromtimestamp(posts[-1]['date'])
             return oldest_post_time < until_date
     def filter_older_posts(posts):
-        return [post for post in posts if post['date'] >= until_date]
+        return [post for post in posts if datetime.fromtimestamp(post['date']) >= until_date]
     posts = non_paginated_post_fetcher(fetcher, key, quit_when_older_posts, filter_duplicates, **params)
     return filter_older_posts(posts)
 
@@ -177,6 +198,7 @@ def likes_view():
     return template_dict(posts=posts, page_title=page_title)
 
 @get('/')
+@get('/dashboard')
 @view('templates/main')
 def dashboard_view():
     params = {}
@@ -191,6 +213,27 @@ def dashboard_view():
         posts = None
         page_title = 'Welcome, Guest!'
     return template_dict(posts=posts, page_title=page_title)
+
+@get('/hot')
+@view('templates/main')
+def get_hot():
+    hot_since = datetime.now() - timedelta(days=1)
+    client = tumblr_client()
+    params = {}
+    if request.query.ptype:
+        params['type'] = request.query.ptype
+    posts = []
+    updated_followed_blogs = [blog for blog in followed_blogs() if datetime.fromtimestamp(blog['updated']) >= hot_since]
+    for blog in random.sample(updated_followed_blogs, min(len(updated_followed_blogs), 5)):
+        blog_name = blog['name']
+        blog_posts = get_posts_since_date(partial(client.posts, blog_name), 'posts', hot_since, **params)
+        blog_average_notes = 0 if not blog_posts else sum([p['notes'] for p in blog_posts]) / len(blog_posts)
+        print '%s: fetched %s posts (avg notes: %s)' % (blog_name, len(blog_posts), blog_average_notes)
+        for post in blog_posts:
+            post['weighted_notes'] = float(post['notes']) / blog_average_notes
+        posts += blog_posts
+    posts = sort_posts_by(posts, request.query.sort or True, key='weighted_notes')
+    return template_dict(posts=posts, title='Hot')
 
 @get('/static/<sfile:re:.+>')
 def get_static(sfile):
@@ -258,6 +301,7 @@ def username():
 pages = [
     {'name': 'Dashboard', 'url': '/'},
     {'name': 'Likes', 'url': '/likes'},
+    {'name': 'Hot', 'url': '/hot'},
 ]
 TEMPLATE_PATH.append(os.path.dirname(os.path.realpath(__file__)))
 
