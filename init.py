@@ -102,13 +102,13 @@ def filter_duplicate_posts(posts):
             post_ids.append(post['id'])
     return result_posts
 
-def non_paginated_post_fetcher(fetch, key, should_quit, filter_duplicates=False, **params):
+def non_paginated_post_fetcher(fetch, key, should_quit, filter_duplicates=False, offset=0, **params):
     #
     # Fetches posts (a multiple of 20) until the function should_quit fails.
     # Filtering the result is up to the caller (e.g. not all the last 20 were wanted).
     #
     max_allowed = 20
-    fetched = 0
+    fetched = offset
     posts = []
     while not should_quit(posts):
         response = fetch(limit=max_allowed, offset=fetched, **params)
@@ -154,6 +154,11 @@ def blog_view(blog):
     params = {}
     if request.query.ptype:
         params['type'] = request.query.ptype
+    if request.query.offset:
+        if request.query.offset == 'random':
+            params['offset'] = random_offset(blog, num_posts)
+        else:
+            params['offset'] = int(request.query.offset)
     try:
         if since_date:
             posts = get_posts_since_date(partial(client.posts, blog), 'posts', since_date, **params)
@@ -167,6 +172,10 @@ def blog_view(blog):
                          title=blog_info['blog']['name'],
                          subtitle=blog_info['blog']['title'],
                          avatar_url=client.avatar(blog)['avatar_url'])
+
+def random_offset(blog, num_posts):
+    blog_posts = tumblr_client().blog_info(blog)['blog']['posts']
+    return random.randint(0, blog_posts-num_posts)
 
 def requested_posts():
     if not request or not request.query.limit.isdigit():
