@@ -233,7 +233,7 @@ def get_hot():
             post['weighted_notes'] = float(post['notes']) / blog_average_notes
         posts += blog_posts
     posts = sort_posts_by(posts, request.query.sort or True, key='weighted_notes')
-    return template_dict(posts=posts, title='Hot')
+    return template_dict(posts=posts, page_title='Hot')
 
 @get('/static/<sfile:re:.+>')
 def get_static(sfile):
